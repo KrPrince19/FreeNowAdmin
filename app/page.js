@@ -4,6 +4,7 @@ import AdminNavbar from './components/AdminNavbar';
 import { motion } from 'framer-motion';
 import { Users, MessageSquare, Activity, Zap, Shield, Heart } from 'lucide-react';
 import Link from 'next/link';
+import { socket } from '../lib/socket';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
@@ -13,32 +14,67 @@ export default function AdminDashboard() {
   });
 
   const [loading, setLoading] = useState(true);
+  const [isConnected, setIsConnected] = useState(socket.connected);
+
+  const fetchStats = async () => {
+    try {
+      const [usersRes, feedbackRes, roomsRes] = await Promise.all([
+        fetch('http://localhost:5000/api/admin/users'),
+        fetch('http://localhost:5000/api/admin/feedback'),
+        fetch('http://localhost:5000/api/active-conversations')
+      ]);
+
+      const users = await usersRes.json();
+      const feedback = await feedbackRes.json();
+      const rooms = await roomsRes.json();
+
+      setStats({
+        users: users.length,
+        feedback: feedback.length,
+        activeRooms: rooms.length
+      });
+    } catch (err) {
+      console.error("Failed to fetch dashboard stats:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function fetchStats() {
-      try {
-        const [usersRes, feedbackRes, roomsRes] = await Promise.all([
-          fetch('http://localhost:5000/api/admin/users'),
-          fetch('http://localhost:5000/api/admin/feedback'),
-          fetch('http://localhost:5000/api/active-conversations')
-        ]);
-
-        const users = await usersRes.json();
-        const feedback = await feedbackRes.json();
-        const rooms = await roomsRes.json();
-
-        setStats({
-          users: users.length,
-          feedback: feedback.length,
-          activeRooms: rooms.length
-        });
-      } catch (err) {
-        console.error("Failed to fetch dashboard stats:", err);
-      } finally {
-        setLoading(false);
-      }
-    }
     fetchStats();
+
+    // Socket Status
+    const onConnect = () => setIsConnected(true);
+    const onDisconnect = () => setIsConnected(false);
+
+    socket.on("connect", onConnect);
+    socket.on("disconnect", onDisconnect);
+
+    // Dynamic Updates
+    const handleUpdate = () => {
+      console.log("🔄 Dashboard Refresh Triggered via Socket");
+      fetchStats();
+    };
+
+    socket.on("new-feedback", handleUpdate);
+    socket.on("feedback-deleted", handleUpdate);
+    socket.on("admin-user-deleted", handleUpdate);
+    socket.on("users-update", handleUpdate);
+    socket.on("conversation-started", handleUpdate);
+    socket.on("conversation-ended", handleUpdate);
+
+    if (!socket.connected) socket.connect();
+
+    return () => {
+      socket.off("connect", onConnect);
+      socket.off("disconnect", onDisconnect);
+      socket.off("new-feedback", handleUpdate);
+      socket.off("feedback-deleted", handleUpdate);
+      socket.off("admin-user-deleted", handleUpdate);
+      socket.off("users-update", handleUpdate);
+      socket.off("conversation-started", handleUpdate);
+      socket.off("conversation-ended", handleUpdate);
+    };
   }, []);
 
   const cards = [

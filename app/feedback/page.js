@@ -57,7 +57,7 @@ export default function FeedbackPage() {
 
         socket.on("feedback-deleted", ({ id }) => {
             console.log("🗑️ Socket: Feedback Deleted", id);
-            setFeedback(prev => prev.filter(item => item._id !== id));
+            setFeedback(prev => (Array.isArray(prev) ? prev : []).filter(item => item._id !== id));
         });
 
         return () => {
@@ -84,11 +84,11 @@ export default function FeedbackPage() {
         }
     };
 
-    const filteredFeedback = feedback.filter(item =>
+    const filteredFeedback = Array.isArray(feedback) ? feedback.filter(item =>
         item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.message?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    ) : [];
 
     return (
         <div className="min-h-screen bg-[#0a0a0c] text-white font-sans">

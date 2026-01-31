@@ -56,15 +56,39 @@ export default function UsersPage() {
         // Real-time synchronization for users
         socket.on("admin-suspension", (data) => {
             console.log("🛡️ Socket: User Suspension Sync", data);
-            setUsers(prev => prev.map(u =>
+            setUsers(prev => (Array.isArray(prev) ? prev : []).map(u =>
                 u.email === data.email ? { ...u, isSuspended: data.isSuspended } : u
             ));
+        });
+
+        socket.on("admin-user-deleted", (data) => {
+            console.log("🗑️ Socket: User Deleted Sync", data.email);
+            setUsers(prev => (Array.isArray(prev) ? prev : []).filter(u => u.email !== data.email));
+        });
+
+        socket.on("admin-stats-reset", (data) => {
+            console.log("📊 Socket: User Stats Reset Sync", data.email);
+            setUsers(prev => (Array.isArray(prev) ? prev : []).map(u =>
+                u.email === data.email ? { ...u, totalRequests: 0, matchesMade: 0 } : u
+            ));
+        });
+
+        socket.on("new-user-registered", (user) => {
+            console.log("🆕 Socket: New User Registered Sync", user);
+            setUsers(prev => {
+                const exists = prev.find(u => u.email === user.email);
+                if (exists) return prev.map(u => u.email === user.email ? { ...u, ...user } : u);
+                return [user, ...prev];
+            });
         });
 
         return () => {
             socket.off("connect", onConnect);
             socket.off("disconnect", onDisconnect);
             socket.off("admin-suspension");
+            socket.off("admin-user-deleted");
+            socket.off("admin-stats-reset");
+            socket.off("new-user-registered");
         };
     }, []);
 
@@ -136,10 +160,10 @@ export default function UsersPage() {
         }
     };
 
-    const filteredUsers = users.filter(u =>
+    const filteredUsers = Array.isArray(users) ? users.filter(u =>
         u.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         u.email?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    ) : [];
 
     return (
         <div className="min-h-screen bg-[#0a0a0c] text-white font-sans">
