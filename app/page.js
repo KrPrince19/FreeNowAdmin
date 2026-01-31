@@ -19,9 +19,9 @@ export default function AdminDashboard() {
   const fetchStats = async () => {
     try {
       const [usersRes, feedbackRes, roomsRes] = await Promise.all([
-        fetch('http://localhost:5000/api/admin/users'),
-        fetch('http://localhost:5000/api/admin/feedback'),
-        fetch('http://localhost:5000/api/active-conversations')
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/users`),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/feedback`),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL.replace('/api', '')}/api/active-conversations`)
       ]);
 
       const users = await usersRes.json();

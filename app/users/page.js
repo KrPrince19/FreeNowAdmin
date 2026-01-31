@@ -22,7 +22,7 @@ export default function UsersPage() {
 
     const fetchUsers = async () => {
         try {
-            const res = await fetch('http://localhost:5000/api/admin/users');
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/users`);
             const data = await res.json();
             setUsers(data);
         } catch (err) {
@@ -95,7 +95,7 @@ export default function UsersPage() {
     const handleDelete = async (email) => {
         setDeletingEmail(email);
         try {
-            const res = await fetch(`http://localhost:5000/api/admin/users/${email}`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/users/${email}`, {
                 method: 'DELETE'
             });
             if (res.ok) {
@@ -112,7 +112,7 @@ export default function UsersPage() {
         setConfirmSuspendEmail(null);
         setProcessing(`suspending:${email}`);
         try {
-            const res = await fetch(`http://localhost:5000/api/admin/users/${email}/suspend`, { method: 'POST' });
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/users/${email}/suspend`, { method: 'POST' });
             if (res.ok) {
                 const { isSuspended } = await res.json();
                 setUsers(users.map(u => u.email === email ? { ...u, isSuspended } : u));
@@ -128,7 +128,7 @@ export default function UsersPage() {
         if (!warningUser || !warningMsg) return;
         setProcessing(`warning:${warningUser.email}`);
         try {
-            const res = await fetch(`http://localhost:5000/api/admin/users/${warningUser.email}/warn`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/users/${warningUser.email}/warn`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ message: warningMsg })
@@ -149,7 +149,7 @@ export default function UsersPage() {
         setConfirmResetEmail(null);
         setProcessing(`resetting:${email}`);
         try {
-            const res = await fetch(`http://localhost:5000/api/admin/users/${email}/reset-stats`, { method: 'POST' });
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/users/${email}/reset-stats`, { method: 'POST' });
             if (res.ok) {
                 setUsers(users.map(u => u.email === email ? { ...u, totalRequests: 0, matchesMade: 0 } : u));
             }

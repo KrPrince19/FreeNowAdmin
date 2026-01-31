@@ -17,7 +17,7 @@ export default function FeedbackPage() {
 
     const fetchFeedback = async () => {
         try {
-            const res = await fetch('http://localhost:5000/api/admin/feedback');
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/feedback`);
             const data = await res.json();
             setFeedback(data);
         } catch (err) {
@@ -71,7 +71,7 @@ export default function FeedbackPage() {
     const handleDelete = async (id) => {
         setDeletingId(id);
         try {
-            const res = await fetch(`http://localhost:5000/api/admin/feedback/${id}`, {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/feedback/${id}`, {
                 method: 'DELETE'
             });
             if (res.ok) {
