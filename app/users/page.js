@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { socket } from '../../lib/socket';
 import AdminNavbar from '../components/AdminNavbar';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trash2, Mail, Search, Ban, AlertTriangle, RefreshCcw, X, Send } from 'lucide-react';
+import { Trash2, Mail, Search, Ban, AlertTriangle, RefreshCcw, X, Send, Gem, RotateCcw } from 'lucide-react';
 
 export default function UsersPage() {
     const [users, setUsers] = useState([]);
@@ -13,6 +13,7 @@ export default function UsersPage() {
     const [confirmDeleteEmail, setConfirmDeleteEmail] = useState(null);
     const [confirmSuspendEmail, setConfirmSuspendEmail] = useState(null);
     const [confirmResetEmail, setConfirmResetEmail] = useState(null);
+    const [confirmDailyResetEmail, setConfirmDailyResetEmail] = useState(null);
     const [isConnected, setIsConnected] = useState(socket.connected);
     const [socketId, setSocketId] = useState(socket.id);
 
@@ -73,6 +74,20 @@ export default function UsersPage() {
             ));
         });
 
+        socket.on("admin-premium-toggle", (data) => {
+            console.log("💎 Socket: Premium Toggle Sync", data);
+            setUsers(prev => (Array.isArray(prev) ? prev : []).map(u =>
+                u.email === data.email ? { ...u, isPremium: data.isPremium } : u
+            ));
+        });
+
+        socket.on("admin-usage-reset", (data) => {
+            console.log("♻️ Socket: Usage Reset Sync", data.email);
+            setUsers(prev => (Array.isArray(prev) ? prev : []).map(u =>
+                u.email === data.email ? { ...u, requestsToday: 0, goFreeToday: 0 } : u
+            ));
+        });
+
         socket.on("new-user-registered", (user) => {
             console.log("🆕 Socket: New User Registered Sync", user);
             setUsers(prev => {
@@ -88,6 +103,8 @@ export default function UsersPage() {
             socket.off("admin-suspension");
             socket.off("admin-user-deleted");
             socket.off("admin-stats-reset");
+            socket.off("admin-premium-toggle");
+            socket.off("admin-usage-reset");
             socket.off("new-user-registered");
         };
     }, []);
@@ -155,6 +172,36 @@ export default function UsersPage() {
             }
         } catch (err) {
             console.error("Reset failed:", err);
+        } finally {
+            setProcessing(null);
+        }
+    };
+
+    const togglePremium = async (email) => {
+        setProcessing(`premium:${email}`);
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/users/${email}/premium`, { method: 'POST' });
+            if (res.ok) {
+                const { isPremium } = await res.json();
+                setUsers(users.map(u => u.email === email ? { ...u, isPremium } : u));
+            }
+        } catch (err) {
+            console.error("Premium toggle failed:", err);
+        } finally {
+            setProcessing(null);
+        }
+    };
+
+    const resetDailyLimits = async (email) => {
+        setConfirmDailyResetEmail(null);
+        setProcessing(`daily-reset:${email}`);
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin/users/${email}/reset-daily-limits`, { method: 'POST' });
+            if (res.ok) {
+                setUsers(users.map(u => u.email === email ? { ...u, requestsToday: 0, goFreeToday: 0 } : u));
+            }
+        } catch (err) {
+            console.error("Daily Reset failed:", err);
         } finally {
             setProcessing(null);
         }
@@ -231,6 +278,7 @@ export default function UsersPage() {
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-3 mb-1">
                                             <h3 className="text-lg font-black tracking-tight truncate">{user.name}</h3>
+                                            {user.isPremium && <span className="px-2 py-0.5 rounded-md bg-indigo-500 text-[10px] font-black uppercase tracking-widest flex items-center gap-1"><Gem size={10} /> Premium</span>}
                                             {user.isSuspended && <span className="px-2 py-0.5 rounded-md bg-rose-500 text-[10px] font-black uppercase tracking-widest">Suspended</span>}
                                             {user.systemWarning && <AlertTriangle size={14} className="text-amber-500" />}
                                         </div>
@@ -239,18 +287,33 @@ export default function UsersPage() {
                                         </p>
                                     </div>
 
-                                    <div className="flex items-center gap-10 text-center px-6">
+                                    <div className="flex items-center gap-8 text-center px-6 border-x border-white/5 mr-4">
                                         <div>
-                                            <div className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-1">Sessions</div>
-                                            <div className="text-lg font-black text-indigo-400">{user.totalRequests || 0}</div>
+                                            <div className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-1">Pings Left</div>
+                                            <div className={`text-lg font-black ${user.isPremium ? 'text-indigo-400 animate-pulse' : 'text-emerald-400'}`}>
+                                                {user.isPremium ? '∞' : Math.max(0, 5 - (user.requestsToday || 0))}
+                                            </div>
                                         </div>
                                         <div>
-                                            <div className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-1">Matches</div>
-                                            <div className="text-lg font-black text-rose-400">{user.matchesMade || 0}</div>
+                                            <div className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-1">Toggles Left</div>
+                                            <div className={`text-lg font-black ${user.isPremium ? 'text-rose-400 animate-pulse' : 'text-amber-400'}`}>
+                                                {user.isPremium ? '∞' : Math.max(0, 3 - (user.goFreeToday || 0))}
+                                            </div>
                                         </div>
                                     </div>
 
                                     <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => togglePremium(user.email)}
+                                            className={`p-3 rounded-xl border transition-all ${user.isPremium
+                                                ? 'bg-indigo-500 text-white border-indigo-600 shadow-lg shadow-indigo-500/20'
+                                                : 'bg-white/5 text-white/20 hover:bg-indigo-500/20 hover:text-indigo-400 border-transparent hover:border-indigo-500/20'
+                                                }`}
+                                            title={user.isPremium ? "Remove Premium" : "Make Premium"}
+                                        >
+                                            <Gem size={18} />
+                                        </button>
+
                                         <button
                                             onClick={() => setWarningUser(user)}
                                             className="p-3 rounded-xl bg-white/5 text-white/20 hover:bg-amber-500/20 hover:text-amber-500 transition-all border border-transparent hover:border-amber-500/20"
@@ -280,11 +343,41 @@ export default function UsersPage() {
                                                     onClick={() => {
                                                         setConfirmResetEmail(user.email);
                                                         setConfirmSuspendEmail(null);
+                                                        setConfirmDailyResetEmail(null);
                                                     }}
                                                     className="p-3 rounded-xl bg-white/5 text-white/20 hover:bg-indigo-500/20 hover:text-indigo-400 transition-all border border-transparent hover:border-indigo-500/20"
-                                                    title="Reset Stats"
+                                                    title="Reset Lifetime Stats"
                                                 >
                                                     <RefreshCcw size={18} />
+                                                </button>
+                                            )}
+
+                                            {confirmDailyResetEmail === user.email ? (
+                                                <div className="flex items-center gap-1.5 bg-emerald-500/10 p-1.5 rounded-xl border border-emerald-500/20">
+                                                    <button
+                                                        onClick={() => resetDailyLimits(user.email)}
+                                                        className="px-3 py-1.5 bg-emerald-500 text-white text-[9px] font-black uppercase tracking-widest rounded-lg"
+                                                    >
+                                                        Confirm
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setConfirmDailyResetEmail(null)}
+                                                        className="px-3 py-1.5 bg-white/5 text-white/40 text-[9px] font-black uppercase tracking-widest rounded-lg"
+                                                    >
+                                                        No
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    onClick={() => {
+                                                        setConfirmDailyResetEmail(user.email);
+                                                        setConfirmResetEmail(null);
+                                                        setConfirmSuspendEmail(null);
+                                                    }}
+                                                    className="p-3 rounded-xl bg-white/5 text-white/20 hover:bg-emerald-500/20 hover:text-emerald-400 transition-all border border-transparent hover:border-emerald-500/20"
+                                                    title="Reset Daily Limits"
+                                                >
+                                                    <RotateCcw size={18} />
                                                 </button>
                                             )}
 

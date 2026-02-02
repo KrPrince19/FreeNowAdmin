@@ -54,3 +54,9 @@ This dashboard provides a centralized interface for managing the FreeNow communi
 
 ### Implementing Vibe Reset Logic
 **How it is implemented**: For managed cleanup, we added a "Reset Stats" feature. This atomically resets a user's `totalRequests` and `matchesMade` counters to zero in MongoDB, effectively giving them a "fresh start" without deleting their profile history.
+
+### Implementing Premium Bypass Controls (Limit Overrides)
+**How it is implemented**: We added a **Premium Toggle** to allow administrators to manually override the daily usage limitations for specific users (VIPs, Testers, or Paying Users).
+1. **Infinite Allowance**: Toggling `isPremium` to `true` completely bypasses the daily 5-request and 3-toggle limits in the backend logic.
+2. **Real-Time UI Updates**: When an admin toggles a user's status, the change is broadcasted via Socket.io. The user's main application UI instantly updates from showing a specific count to showing the infinite "∞" symbol.
+3. **Daily Limit Reset**: For manual limit management, a **Daily Reset** button allows admins to zero-out a user's `requestsToday` and `goFreeToday` counters without granting full premium status. This provides extra "free tries" to specific users on a per-case basis.
