@@ -11,6 +11,7 @@ export default function AdminNavbar() {
         { name: 'Overview', href: '/', icon: <LayoutDashboard size={20} /> },
         { name: 'Users', href: '/users', icon: <Users size={20} /> },
         { name: 'Feedback', href: '/feedback', icon: <MessageSquare size={20} /> },
+        { name: 'Settings', href: '/settings', icon: <Shield size={20} /> },
     ];
 
     return (
